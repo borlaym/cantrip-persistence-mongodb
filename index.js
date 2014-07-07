@@ -1,5 +1,7 @@
 var fs = require("fs");
 _ = require("lodash");
+var mongo = require('mongodb');
+var MongoClient = mongo.MongoClient;
 
 module.exports = {
 	setupPersistence: function() {
@@ -7,7 +9,11 @@ module.exports = {
 		MongoClient.connect('mongodb://127.0.0.1:27017/cantrip', function(err, db) {
 			if (err) throw err;
 			self.data = db.collection(self.options.namespace);
+			self.dataStore.data = self.data;
 		});
+	},
+	syncData: function() {
+
 	},
 	dataStore: {
 		deleteNodes: function(path, callback) {
