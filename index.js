@@ -4,17 +4,16 @@ var mongo = require('mongodb');
 var MongoClient = mongo.MongoClient;
 
 module.exports = {
-	setupPersistence: function() {
+	setupPersistence: function(callback) {
 		var self = this;
 		MongoClient.connect('mongodb://127.0.0.1:27017/cantrip', function(err, db) {
 			if (err) throw err;
 			self.data = db.collection(self.options.namespace);
 			self.dataStore.data = self.data;
+			callback();
 		});
 	},
-	syncData: function() {
-
-	},
+	syncData: function() {},
 	dataStore: {
 		deleteNodes: function(path, callback) {
 			this.data.remove({
