@@ -8,13 +8,17 @@ describe("Cantrip is a database-less REST API library saving to a JSON file", fu
 	Cantrip.options.port = 3001;
 	var serverUrl = "http://localhost:3001/";
 
-	it("should initialize", function() {
-		expect(Cantrip).toBeDefined();
+
+		
+
+	it("should initialize", function(done) {
+		Cantrip.start(function() {
+			expect(Cantrip).toBeDefined();
+			done();
+		});
 	});
 
 	Cantrip.options.namespace = "test" + Math.floor(Math.random() * 10000000000);
-
-	Cantrip.start();
 
 
 	describe("Basic REST API functions", function() {
