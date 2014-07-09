@@ -277,47 +277,53 @@ describe("Cantrip is a database-less REST API library saving to a JSON file", fu
 		describe("DELETE", function() {
 			var id = "";
 
-			// it("should allow you to delete a key from an object", function(done) {
-			// 	request({
-			// 		method: "DELETE",
-			// 		url: serverUrl + "foo/string",
-			// 		json: true,
-			// 	}, function(error, response, body) {
-			// 		expect(body).toEqual({"success": true});
-			// 		Cantrip.dataStore.get("/foo", function(err, data) {
-			// 			expect(data.string).not.toBeDefined();
-			// 			done();
-			// 		});
-			// 	});
-			// });
+			it("should allow you to delete a key from an object", function(done) {
+				request({
+					method: "DELETE",
+					url: serverUrl + "foo/string",
+					json: true,
+				}, function(error, response, body) {
+					expect(body).toEqual({"success": true});
+					Cantrip.dataStore.get("/foo", function(err, data) {
+						expect(data.string).not.toBeDefined();
+						done();
+					});
+				});
+			});
 
-			// it("but shouldn't let you delete an object's _id", function(done) {
-			// 	request({
-			// 		method: "DELETE",
-			// 		url: serverUrl + "foo/collection/0/_id",
-			// 		json: true,
-			// 	}, function(error, response, body) {
-			// 		expect(body.error).toBeDefined();
-			// 		Cantrip.dataStore.get("/foo/collection/0", function(err, data) {
-			// 			expect(data._id).toBeDefined();
-			// 			done();
-			// 		});
-			// 	});
-			// });
+			it("but shouldn't let you delete an object's _id", function(done) {
 
-		// 	it("nor should it let you delete an object's other metadata like _modifiedDate", function(done) {
-		// 		request({
-		// 			method: "DELETE",
-		// 			url: serverUrl + "foo/collection/0/_modifiedDate",
-		// 			json: true,
-		// 		}, function(error, response, body) {
-		// 			expect(body.error).toBeDefined();
-		// 			Cantrip.dataStore.get("/foo/collection/0", function(err, data) {
-		// 				expect(data._modifiedDate).toBeDefined();
-		// 				done();
-		// 			});
-		// 		});
-		// 	});
+				Cantrip.dataStore.get("/foo/collection", function(err, data) {
+					id = data[0]._id;
+					request({
+						method: "DELETE",
+						url: serverUrl + "foo/collection/"+id+"/_id",
+						json: true,
+					}, function(error, response, body) {
+						console.log(body);
+						expect(body.error).toBeDefined();
+						Cantrip.dataStore.get("/foo/collection/" + id, function(err, data) {
+							expect(data._id).toBeDefined();
+							done();
+						});
+					});
+				});
+				
+			});
+
+			it("nor should it let you delete an object's other metadata like _modifiedDate", function(done) {
+				request({
+					method: "DELETE",
+					url: serverUrl + "foo/collection/"+id+"/_modifiedDate",
+					json: true,
+				}, function(error, response, body) {
+					expect(body.error).toBeDefined();
+					Cantrip.dataStore.get("/foo/collection/" + id, function(err, data) {
+						expect(data._modifiedDate).toBeDefined();
+						done();
+					});
+				});
+			});
 
 		// 	it("should allow you to delete a model from a collection by index", function(done) {
 		// 		request({
@@ -333,33 +339,33 @@ describe("Cantrip is a database-less REST API library saving to a JSON file", fu
 		// 		});
 		// 	});
 
-		// 	it("should allow you to delete a model from a collection by id", function(done) {
-		// 		request({
-		// 			method: "DELETE",
-		// 			url: serverUrl + "foo/collection/" + id,
-		// 			json: true,
-		// 		}, function(error, response, body) {
-		// 			expect(body).toEqual({success: true});
-		// 			Cantrip.dataStore.get("/foo/collection", function(err, data) {
-		// 				expect(data).toEqual([]);
-		// 				done();
-		// 			});
-		// 		});
-		// 	});
+			it("should allow you to delete a model from a collection by id", function(done) {
+				request({
+					method: "DELETE",
+					url: serverUrl + "foo/collection/" + id,
+					json: true,
+				}, function(error, response, body) {
+					expect(body).toEqual({success: true});
+					Cantrip.dataStore.get("/foo/collection", function(err, data) {
+						expect(data.length).toBe(1);
+						done();
+					});
+				});
+			});
 
-		// 	it("should allow you to delete a key from the root object", function(done) {
-		// 		request({
-		// 			method: "DELETE",
-		// 			url: serverUrl + "foo",
-		// 			json: true,
-		// 		}, function(error, response, body) {
-		// 			expect(body).toEqual({success: true});
-		// 			Cantrip.dataStore.get("/", function(err, data) {
-		// 				expect(data).toEqual({});
-		// 				done();
-		// 			});
-		// 		});
-		// 	});
+			it("should allow you to delete a key from the root object", function(done) {
+				request({
+					method: "DELETE",
+					url: serverUrl + "foo",
+					json: true,
+				}, function(error, response, body) {
+					expect(body).toEqual({success: true});
+					Cantrip.dataStore.get("/", function(err, data) {
+						expect(data).toEqual({});
+						done();
+					});
+				});
+			});
 
 
 		});
