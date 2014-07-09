@@ -53,7 +53,11 @@ module.exports = {
 						return;
 					}
 
-					var result = {}; //This will hold the resulting object
+					var result = null; //This will hold the resulting object. If there were no documents found, it stays on null
+					if (array.length === 0) {
+						callback(null, null);
+						return;
+					}
 					//Handle single ended queries, when all we return is a single value, an empty object or array
 					if (array.length === 1 && path !== "") {
 						if (array[0].value === "object") result = {};
@@ -61,7 +65,12 @@ module.exports = {
 						else result = {
 							value: array[0].value
 						}; //return a simple value: value object when the end result would be of a basic type
+						callback(null, result);
+						return;
 					}
+
+					//If there are more than one documents found, let's build the resulting object up from a basic object
+					result = {};
 					//Dig into the results. We loop through the nodes (objects) returned by the query
 					for (var i = 0; i < array.length; i++) {
 						var node = array[i]; //This is the current node in our json tree
