@@ -113,11 +113,11 @@ module.exports = {
 				var getKeys = function(obj, pointer) {
 					for (var key in obj) {
 						if (!_.isObject(obj[key])) {
-							// if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
+							if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
 							self.setNode(pointer + "/" + key, obj[key]);
 							self.deleteNodes(pointer + "/" + key);
 						} else {
-							// if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
+							if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
 							var keyToContinue = key;
 							if (obj[key]._id) {
 								keyToContinue = obj[key]._id;
@@ -130,7 +130,6 @@ module.exports = {
 						}
 					}
 				};
-				console.log(data, path);
 				getKeys(data, path);
 			}
 			callback(null, null);

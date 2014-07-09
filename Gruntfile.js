@@ -23,13 +23,13 @@ module.exports = function(grunt) {
                 display: "full",
                 summary: true
             },
-            all: ['tests/']
+            // all: ['tests/'],
+            all: ["tests/"]
         }
     });
 
-    //console.log(grunt.option.flags());
 
     grunt.registerTask('server', ["nodemon"]);
-    grunt.registerTask('test', ["jasmine_node"]);
+    grunt.registerTask('test', ["jasmine_node:all"]);
 
 };
