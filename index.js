@@ -17,7 +17,7 @@ module.exports = {
 	dataStore: {
 		deleteNodes: function(path, callback) {
 			this.data.remove({
-				path: new RegExp(path + "/")
+				path: new RegExp(path)
 			}, function(err, res) {
 				callback && callback(err, res);
 			});
@@ -55,11 +55,12 @@ module.exports = {
 
 					var result = null; //This will hold the resulting object. If there were no documents found, it stays on null
 					if (array.length === 0) {
-						callback(null, null);
+						if (path === "/") callback(null, {});
+						else callback({error: "Requested node doesn't exist."}, null);
 						return;
 					}
 					//Handle single ended queries, when all we return is a single value, an empty object or array
-					if (array.length === 1 && path !== "") {
+					if (array.length === 1) {
 						if (array[0].value === "object") result = {};
 						else if (array[0].value === "array") result = [];
 						else result = {
@@ -78,7 +79,7 @@ module.exports = {
 							if (node.value === "array") result = []; //If the requested root node is an array, replace the base result variable with an empty array
 							continue; //This is basically the first result. When we encounter it, we continue
 						}
-						var members = node.path.replace(path, "").substr(1).split("/"); //We omit the request path from the node's path attribute to get a relative reference, also strip the first / character
+						var members = node.path.replace(path === "/" ? "" : path, "").substr(1).split("/"); //We omit the request path from the node's path attribute to get a relative reference, also strip the first / character
 						var previousNode = null; //This is a pointer to the previous node
 						var pointer = result; //This pointer will walk through our json object, searching for the place where the current node resides, so it can add a value to it
 						//Loop through the nodes. foo/bar will become result.foo.bar
@@ -124,7 +125,7 @@ module.exports = {
 							if (!_.isObject(obj[key])) {
 								if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
 								self.setNode(pointer + "/" + key, obj[key]);
-								self.deleteNodes(pointer + "/" + key);
+								self.deleteNodes(pointer + "/" + key + "\/"); //Delete all previous values this object had
 							} else {
 								if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
 								var keyToContinue = key;
@@ -183,7 +184,7 @@ module.exports = {
 		},
 		parent: function(path, callback) {
 			var parentPath = path.split("/").slice(0, -1).join("/");
-			this.getNode(parentPath, function(err, res) {
+			this.get(parentPath, function(err, res) {
 				callback(err, res);
 			});
 		}

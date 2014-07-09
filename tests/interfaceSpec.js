@@ -4,14 +4,17 @@ var mongoInterface = require("../index.js")
 describe("This is a test suite for making sure the persistence interface works properly. It tests the getter and setter methods by accessing the database directly", function() {
 
 	it("should set up properly", function(done) {
-		Cantrip.options.port = 3001;
+		Cantrip.options.port = 3002;
 		Cantrip.options.namespace = "test" + Math.floor(Math.random() * 10000000000);
 		Cantrip.options.persistence = mongoInterface;
 
 		Cantrip.start(function() {
 			expect(Cantrip.dataStore).toBeDefined();
 			expect(Cantrip.dataStore.data).toBeDefined();
-			done();
+			Cantrip.dataStore.get("/", function(err, res) {
+				expect(res).toEqual({});
+				done();
+			});
 		});
 	});
 
@@ -405,6 +408,30 @@ describe("This is a test suite for making sure the persistence interface works p
 			});
 		});
 
+		it("key6: replacing the value of a nested object", function(done) {
+			Cantrip.dataStore.set("/key6", {foo: "modifiedValue"}, function(err, res) { 
+				Cantrip.dataStore.data.find({path: new RegExp("/key6")}, function(err, res) {
+					res.toArray(function(err, res) {
+						expect(res[1].value).toBe("modifiedValue");
+						done();
+					});
+				});
+			});
+		});
+
+	});
+
+	describe("DELETING objects", function() {
+		it("key1: deleting a key from the root", function(done) {
+			Cantrip.dataStore.delete("/key1", function(err, res) {
+				Cantrip.dataStore.data.find({path: new RegExp("/key1")}, function(err, res) {
+					res.toArray(function(err, res) {
+						expect(res.length).toBe(0);
+						done();
+					});
+				});
+			});
+		});
 	});
 
 });
