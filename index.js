@@ -115,33 +115,66 @@ module.exports = {
 			});
 		},
 		set: function(path, data, callback) {
-			if (!_.isObject(data)) {
-				this.setNode(path, data);
-			} else {
-				var self = this;
-				var getKeys = function(obj, pointer) {
-					for (var key in obj) {
-						if (!_.isObject(obj[key])) {
-							if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
-							self.setNode(pointer + "/" + key, obj[key]);
-							self.deleteNodes(pointer + "/" + key);
-						} else {
-							if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
-							var keyToContinue = key;
-							if (obj[key]._id) {
-								keyToContinue = obj[key]._id;
+			var self = this;
+			this.data.find({path: path}, function(err, res) {
+				res.toArray(function(err, target) {
+					//The function that goes through the data object to insert actual documents to the database
+					var insert = function(obj, pointer) {
+						for (var key in obj) {
+							if (!_.isObject(obj[key])) {
+								if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
+								self.setNode(pointer + "/" + key, obj[key]);
+								self.deleteNodes(pointer + "/" + key);
+							} else {
+								if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
+								var keyToContinue = key;
+								if (obj[key]._id) {
+									keyToContinue = obj[key]._id;
+								}
+								if (_.isArray(obj[key])) self.setNode(pointer + "/" + key, "array");
+								else {
+									self.setNode(pointer + "/" + keyToContinue, "object");
+								}
+								insert(obj[key], pointer + "/" + keyToContinue);
 							}
-							if (_.isArray(obj[key])) self.setNode(pointer + "/" + key, "array");
-							else {
-								self.setNode(pointer + "/" + keyToContinue, "object");
-							}
-							getKeys(obj[key], pointer + "/" + keyToContinue);
 						}
+					};
+					//Target is the root or an object
+					if (target.length === 0 || target[0].value === "object") {
+						//MERGE
+						insert(data, path);
+						callback(null, null);
+						
+					//Target is an array
+					} else if (target[0].value === "array") {
+						//PUSH behavior
+						if (!_.isObject(data) || !data._id) {
+							//Get the index! We need the maximum index of the object
+							self.data.find({path: new RegExp(path)}, function(err, res) {
+								res.toArray(function(err, elements) {
+									var index = _.reduce(elements, function(memo, element) {
+										var index = Number(element.path.replace(path, "").split("/")[0]);
+										if (index > memo) memo = index;
+									}, -1) + 1;
+									self.setNode(path + "/" + index, "object");
+									insert(data, path + "/" + index);
+									callback(null, null);
+								});
+							});
+							
+						} else {
+							//MERGE behavior (not really, but at least we can use the _id property as an index)
+							self.setNode(path + "/" + data._id, "object");
+							insert(data, path + "/" + data._id);
+							callback(null, null);
+						}
+					//Target is a basic value
+					} else {
+						callback({error: "Can't set value of a basic value."}, null);
 					}
-				};
-				getKeys(data, path);
-			}
-			callback(null, null);
+					
+				});
+			});
 		},
 		delete: function(path, callback) {
 			this.deleteNodes(path, function() {

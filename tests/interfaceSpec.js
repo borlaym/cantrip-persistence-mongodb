@@ -19,7 +19,7 @@ describe("This is a test suite for making sure the persistence interface works p
 
 		it("key1: simple value", function(done) {
 			Cantrip.dataStore.set("/", {key1: "string"}, function(err, res) {
-				Cantrip.dataStore.data.find({path: "/key1"}, function(err, res) {
+				Cantrip.dataStore.data.find({path: new RegExp("/key1")}, function(err, res) {
 					res.toArray(function(err, res) {
 						expect(res[0].path).toBe("/key1");
 						expect(res[0].value).toBe("string");
@@ -31,7 +31,7 @@ describe("This is a test suite for making sure the persistence interface works p
 
 		it("key2: empty array", function(done) {
 			Cantrip.dataStore.set("/", {key2: []}, function(err, res) {
-				Cantrip.dataStore.data.find({path: "/key2"}, function(err, res) {
+				Cantrip.dataStore.data.find({path: new RegExp("/key2")}, function(err, res) {
 					res.toArray(function(err, res) {
 						expect(res[0].path).toBe("/key2");
 						expect(res[0].value).toBe("array");
@@ -43,7 +43,7 @@ describe("This is a test suite for making sure the persistence interface works p
 
 		it("key3: empty object", function(done) {
 			Cantrip.dataStore.set("/", {key3: {}}, function(err, res) {
-				Cantrip.dataStore.data.find({path: "/key3"}, function(err, res) {
+				Cantrip.dataStore.data.find({path: new RegExp("/key3")}, function(err, res) {
 					res.toArray(function(err, res) {
 						expect(res[0].path).toBe("/key3");
 						expect(res[0].value).toBe("object");
@@ -250,7 +250,7 @@ describe("This is a test suite for making sure the persistence interface works p
 			});
 		});
 
-		it("key8: accessing a nested bject by its key", function(done) {
+		it("key8: accessing a nested object by its key", function(done) {
 			Cantrip.dataStore.get("/key8/foo", function(err, res) {
 				expect(res).toEqual([{_id: "nestedID", bar: "baz"}]);
 				Cantrip.dataStore.get("/key8/foo/nestedID", function(err, res) {
@@ -267,9 +267,10 @@ describe("This is a test suite for making sure the persistence interface works p
 
 
 	describe("SET methods on nested keys", function() {
-		//This test is now failing because if you try to add a property to a basic value like a string, it does so anyway. In order to detect that the parent node holds a basic value and thus cannot have children, you would have to actually get the parent object beforehand. I opted to not do this to boost performance, but may come back to this in the future. Now the node will be inserted, so if later on "key1" would be overwritten to be an object, it would have the key foo in it.
-		xit("key1: trying to write a basic value's property should have no effect", function(done) {
+		it("key1: trying to write a basic value's property should have no effect", function(done) {
 			Cantrip.dataStore.set("/key1", {foo: "bar"}, function(err, res) {
+				expect(err).toBeDefined();
+				expect(res).toEqual(null);
 				Cantrip.dataStore.data.find({path: new RegExp("/key1")}, function(err, res) {
 					res.toArray(function(err, res) {
 						expect(res.length).toBe(1);
@@ -281,14 +282,56 @@ describe("This is a test suite for making sure the persistence interface works p
 			});
 		});
 
-		xit("key2: adding an object to an empty array", function(done) {
+		it("key2: adding an object to an empty array", function(done) {
 			Cantrip.dataStore.set("/key2", {foo: "bar", _id: "someID"}, function(err, res) {
 				Cantrip.dataStore.data.find({path: new RegExp("/key2")}, function(err, res) {
 					res.toArray(function(err, res) {
-						console.log(res);
-						expect(res.length).toBe(3);
-						expect(res[1].path).toBe("/key2/0");
+						expect(res.length).toBe(4);
+						expect(res[1].path).toBe("/key2/someID");
 						expect(res[1].value).toBe("object");
+						expect(res[2].path).toBe("/key2/someID/foo");
+						expect(res[2].value).toBe("bar");
+						done();
+					});
+				});
+			});
+		});
+
+		it("key3: adding a key to an empty object", function(done) {
+			Cantrip.dataStore.set("/key3", {foo: "bar"}, function(err, res) {
+				Cantrip.dataStore.data.find({path: new RegExp("/key3")}, function(err, res) {
+					res.toArray(function(err, res) {
+						expect(res.length).toBe(2);
+						expect(res[1].path).toBe("/key3/foo");
+						expect(res[1].value).toBe("bar");
+						done();
+					});
+				});
+			});
+		});
+
+		it("key3: adding an object to an object", function(done) {
+			Cantrip.dataStore.set("/key3", {obj: {foo: "bar"}}, function(err, res) {
+				Cantrip.dataStore.data.find({path: new RegExp("/key3")}, function(err, res) {
+					res.toArray(function(err, res) {
+						expect(res.length).toBe(4);
+						expect(res[2].path).toBe("/key3/obj");
+						expect(res[2].value).toBe("object");
+						expect(res[3].path).toBe("/key3/obj/foo");
+						expect(res[3].value).toBe("bar");
+						done();
+					});
+				});
+			});
+		});
+
+		it("key5: adding a key to an object inside an array", function(done) {
+			Cantrip.dataStore.set("/key5/someID1", {newKey: true}, function(err, res) {
+				Cantrip.dataStore.data.find({path: new RegExp("/key5/someID1")}, function(err, res) {
+					res.toArray(function(err, res) {
+						expect(res.length).toBe(4);
+						expect(res[3].path).toBe("/key5/someID1/newKey");
+						expect(res[3].value).toBe(true);
 						done();
 					});
 				});
@@ -297,7 +340,71 @@ describe("This is a test suite for making sure the persistence interface works p
 	});
 
 	describe("Overwriting existing values with SET methods", function() {
-		//TODO
+
+		it("key1: overwriting a basic value with another basic value on the root", function(done) {
+			Cantrip.dataStore.set("/", {key1: "different string"}, function(err, res) {
+				Cantrip.dataStore.data.find({path: "/key1"}, function(err, res) {
+					res.toArray(function(err, res) {
+						expect(res[0].path).toBe("/key1");
+						expect(res[0].value).toBe("different string");
+						done();
+					});
+				});
+			});
+		});
+
+		it("key1: overwriting a basic value with an object on the root", function(done) {
+			Cantrip.dataStore.set("/", {key1: {bar: "baz"}}, function(err, res) { //not using foo: bar because that's what we used when we tried to set value on a basic type. If that was successful, the foo key should appear here
+				Cantrip.dataStore.data.find({path: new RegExp("/key1")}, function(err, res) {
+					res.toArray(function(err, res) {
+						expect(res.length).toBe(2);
+						expect(res[0].path).toBe("/key1");
+						expect(res[0].value).toBe("object");
+						expect(res[1].path).toBe("/key1/bar");
+						expect(res[1].value).toBe("baz");
+						done();
+					});
+				});
+			});
+		});
+
+		it("key1: overwriting a basic value on an embedded object", function(done) {
+			Cantrip.dataStore.set("/key1", {bar: "newValue"}, function(err, res) {
+				Cantrip.dataStore.data.find({path: new RegExp("/key1")}, function(err, res) {
+					res.toArray(function(err, res) {
+						expect(res[1].value).toBe("newValue");
+						done();
+					});
+				});
+			});
+		});
+
+		it("key2: replacing an array with contents with a basic value, deleting its contents", function(done) {
+			Cantrip.dataStore.set("/", {key2: "foo"}, function(err, res) { 
+				Cantrip.dataStore.data.find({path: new RegExp("/key2")}, function(err, res) {
+					res.toArray(function(err, res) {
+						expect(res.length).toBe(1);
+						expect(res[0].path).toBe("/key2");
+						expect(res[0].value).toBe("foo");
+						done();
+					});
+				});
+			});
+		});
+
+		it("key3: replacing an object with contents with a basic value, deleting its contents", function(done) {
+			Cantrip.dataStore.set("/", {key3: "foo"}, function(err, res) { 
+				Cantrip.dataStore.data.find({path: new RegExp("/key3")}, function(err, res) {
+					res.toArray(function(err, res) {
+						expect(res.length).toBe(1);
+						expect(res[0].path).toBe("/key3");
+						expect(res[0].value).toBe("foo");
+						done();
+					});
+				});
+			});
+		});
+
 	});
 
 });
