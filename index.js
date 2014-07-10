@@ -10,7 +10,9 @@ module.exports = {
 			if (err) throw err;
 			self.data = db.collection(self.options.namespace);
 			self.dataStore.data = self.data;
-			callback();
+			self.dataStore.data.update({path: "/_contents"}, {path: "/_contents", value: "object"}, {upsert:true, safe:true}, function() {
+				callback();
+			});
 		});
 	},
 	syncData: function() {},
@@ -52,15 +54,14 @@ module.exports = {
 						callback(err, null);
 						return;
 					}
-
 					var result = null; //This will hold the resulting object. If there were no documents found, it stays on null
 					if (array.length === 0) {
-						if (path === "/") callback(null, {});
+						if (path === "/_contents/") callback(null, {});
 						else callback({error: "Requested node doesn't exist."}, null);
 						return;
 					}
 					//Handle single ended queries, when all we return is a single value, an empty object or array
-					if (array.length === 1) {
+					if (array.length === 1 && path !== "/_contents/") {
 						if (array[0].value === "object") result = {};
 						else if (array[0].value === "array") result = [];
 						else result = {
@@ -79,7 +80,9 @@ module.exports = {
 							if (node.value === "array") result = []; //If the requested root node is an array, replace the base result variable with an empty array
 							continue; //This is basically the first result. When we encounter it, we continue
 						}
-						var members = node.path.replace(path === "/" ? "" : path, "").substr(1).split("/"); //We omit the request path from the node's path attribute to get a relative reference, also strip the first / character
+						var toReplace = path === "/" ? "" : path;
+						if (path === "/_contents/") toReplace = "_contents/";
+						var members = node.path.replace(toReplace, "").substr(1).split("/"); //We omit the request path from the node's path attribute to get a relative reference, also strip the first / character
 						var previousNode = null; //This is a pointer to the previous node
 						var pointer = result; //This pointer will walk through our json object, searching for the place where the current node resides, so it can add a value to it
 						//Loop through the nodes. foo/bar will become result.foo.bar
@@ -123,10 +126,12 @@ module.exports = {
 					var insert = function(obj, pointer) {
 						for (var key in obj) {
 							if (!_.isObject(obj[key])) {
+								if (pointer === "/_contents/") pointer = "/_contents"; //Fix when we try to set the root "/"
 								if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
 								self.setNode(pointer + "/" + key, obj[key]);
 								self.deleteNodes(pointer + "/" + key + "\/"); //Delete all previous values this object had
 							} else {
+								if (pointer === "/_contents/") pointer = "/_contents"; //Fix when we try to set the root "/"
 								if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
 								var keyToContinue = key;
 								if (obj[key]._id) {
