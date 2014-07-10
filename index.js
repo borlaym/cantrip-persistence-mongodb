@@ -6,7 +6,11 @@ var MongoClient = mongo.MongoClient;
 module.exports = {
 	setupPersistence: function(callback) {
 		var self = this;
-		MongoClient.connect('mongodb://127.0.0.1:27017/cantrip', function(err, db) {
+		if (!this.options.mongodb) this.options.mongodb = {
+			ip: "localhost",
+			port: 27017
+		};
+		MongoClient.connect('mongodb://'+this.options.mongodb.ip+':'+this.options.mongodb.port+'/cantrip', function(err, db) {
 			if (err) throw err;
 			self.data = db.collection(self.options.namespace);
 			self.dataStore.data = self.data;
