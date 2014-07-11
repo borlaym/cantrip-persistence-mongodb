@@ -3,6 +3,26 @@ _ = require("lodash");
 var mongo = require('mongodb');
 var MongoClient = mongo.MongoClient;
 
+var queue = [];
+var lock = false;
+
+function added(cantrip) {
+	if (queue.length > 0 && !lock) {
+		var data = queue.shift();
+		lock = true;
+		cantrip.data.update({
+			path: data.path
+		},
+			data, {
+			upsert: true,
+			safe: true
+		}, function(err, docs) {
+			lock = false;
+			added(cantrip);
+		});
+	}
+}
+
 module.exports = {
 	setupPersistence: function(callback) {
 		var self = this;
@@ -29,23 +49,13 @@ module.exports = {
 			});
 		},
 		setNode: function(path, value, callback) {
-			this.data.update({
-				path: new RegExp(path)
-			}, {
-				value: value,
-				path: path
-			}, {
-				upsert: true,
-				safe: true
-			}, function(err, docs) {
-				err && console.log(err);
-				callback && callback(err, docs);
-			});
+			queue.push({path: path, value: value});
+			added(this);
 		},
 		get: function(path, callback) {
 			this.data.find({
 				path: new RegExp(path)
-			}, function(err, res) {
+			}).sort({path: 1}, function(err, res) {
 
 				if (err) {
 					callback(err, null);
@@ -103,7 +113,9 @@ module.exports = {
 									else pointer[members[j]] = [];
 								} else {
 									if (_.isArray(previousNode)) previousNode.push(node.value);
-									else pointer[members[j]] = node.value;
+									else {
+											pointer[members[j]] = node.value;
+									}
 								}
 							} else {
 								if (_.isArray(previousNode)) {
