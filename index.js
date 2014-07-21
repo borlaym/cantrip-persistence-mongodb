@@ -3,26 +3,6 @@ _ = require("lodash");
 var mongo = require('mongodb');
 var MongoClient = mongo.MongoClient;
 
-var queue = [];
-var lock = false;
-
-function added(cantrip) {
-	if (queue.length > 0 && !lock) {
-		var data = queue.shift();
-		lock = true;
-		cantrip.data.update({
-			path: data.path
-		},
-			data, {
-			upsert: true,
-			safe: true
-		}, function(err, docs) {
-			lock = false;
-			added(cantrip);
-		});
-	}
-}
-
 module.exports = {
 	setupPersistence: function(callback) {
 		var self = this;
@@ -49,8 +29,18 @@ module.exports = {
 			});
 		},
 		setNode: function(path, value, callback) {
-			queue.push({path: path, value: value});
-			added(this);
+			this.data.update({
+				path: new RegExp(path)
+			}, {
+				value: value,
+				path: path
+			}, {
+				upsert: true,
+				safe: true
+			}, function(err, docs) {
+				err && console.log(err);
+				callback && callback(err, docs);
+			});
 		},
 		get: function(path, callback) {
 			this.data.find({
