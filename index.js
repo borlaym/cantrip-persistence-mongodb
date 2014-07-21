@@ -2,6 +2,7 @@ var fs = require("fs");
 _ = require("lodash");
 var mongo = require('mongodb');
 var MongoClient = mongo.MongoClient;
+var dbase = null;
 
 module.exports = {
 	setupPersistence: function(callback) {
@@ -11,8 +12,9 @@ module.exports = {
 			port: 27017
 		};
 		MongoClient.connect('mongodb://'+this.options.mongodb.ip+':'+this.options.mongodb.port+'/cantrip', function(err, db) {
+			dbase = db;
 			if (err) throw err;
-			self.data = db.collection(self.options.namespace);
+			self.data = db.collection(self.options.namespace, {w: 1});
 			self.dataStore.data = self.data;
 			self.dataStore.data.update({path: "/_contents"}, {path: "/_contents", value: "object"}, {upsert:true, safe:true}, function() {
 				callback();
@@ -130,6 +132,7 @@ module.exports = {
 				res.toArray(function(err, target) {
 					//The function that goes through the data object to insert actual documents to the database
 					var insert = function(obj, pointer) {
+						console.log(obj, pointer);
 						for (var key in obj) {
 							if (!_.isObject(obj[key])) {
 								if (pointer === "/_contents/") pointer = "/_contents"; //Fix when we try to set the root "/"
