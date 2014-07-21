@@ -2,26 +2,8 @@ var fs = require("fs");
 _ = require("lodash");
 var mongo = require('mongodb');
 var MongoClient = mongo.MongoClient;
-
-var queue = [];
-var lock = false;
-
-function added(cantrip) {
-	if (queue.length > 0 && !lock) {
-		var data = queue.shift();
-		lock = true;
-		cantrip.data.update({
-			path: data.path
-		},
-			data, {
-			upsert: true,
-			safe: true
-		}, function(err, docs) {
-			lock = false;
-			added(cantrip);
-		});
-	}
-}
+var kue = require("kue");
+var jobs;
 
 module.exports = {
 	setupPersistence: function(callback) {
@@ -30,13 +12,36 @@ module.exports = {
 			ip: "localhost",
 			port: 27017
 		};
-		MongoClient.connect('mongodb://'+this.options.mongodb.ip+':'+this.options.mongodb.port+'/cantrip', function(err, db) {
+		MongoClient.connect('mongodb://' + this.options.mongodb.ip + ':' + this.options.mongodb.port + '/cantrip', function(err, db) {
 			if (err) throw err;
 			self.data = db.collection(self.options.namespace);
 			self.dataStore.data = self.data;
-			self.dataStore.data.update({path: "/_contents"}, {path: "/_contents", value: "object"}, {upsert:true, safe:true}, function() {
+			self.dataStore.data.update({
+				path: "/_contents"
+			}, {
+				path: "/_contents",
+				value: "object"
+			}, {
+				upsert: true,
+				safe: true
+			}, function() {
 				callback();
 			});
+			//Set up REDIS queue
+			jobs = kue.createQueue();
+			jobs.process("insert", function(job, done) {
+				self.data.update({
+						path: job.data.path
+					},
+					job.data, {
+						upsert: true,
+						safe: true
+					}, function(err, docs) {
+						err && console.log(err);
+						done && done(err, docs);
+					});
+			});
+
 		});
 	},
 	syncData: function() {},
@@ -49,13 +54,18 @@ module.exports = {
 			});
 		},
 		setNode: function(path, value, callback) {
-			queue.push({path: path, value: value});
-			added(this);
+			var job = jobs.create("insert", {
+				path: path,
+				value: value
+			});
+			job.save();
 		},
 		get: function(path, callback) {
 			this.data.find({
 				path: new RegExp(path)
-			}).sort({path: 1}, function(err, res) {
+			}).sort({
+				path: 1
+			}, function(err, res) {
 
 				if (err) {
 					callback(err, null);
@@ -71,7 +81,9 @@ module.exports = {
 					var result = null; //This will hold the resulting object. If there were no documents found, it stays on null
 					if (array.length === 0) {
 						if (path === "/_contents/") callback(null, {});
-						else callback({error: "Requested node doesn't exist."}, null);
+						else callback({
+							error: "Requested node doesn't exist."
+						}, null);
 						return;
 					}
 					//Handle single ended queries, when all we return is a single value, an empty object or array
@@ -114,7 +126,9 @@ module.exports = {
 								} else {
 									if (_.isArray(previousNode)) previousNode.push(node.value);
 									else {
+										try {
 											pointer[members[j]] = node.value;
+										} catch(err) {}
 									}
 								}
 							} else {
@@ -136,7 +150,9 @@ module.exports = {
 		},
 		set: function(path, data, callback) {
 			var self = this;
-			this.data.find({path: path}, function(err, res) {
+			this.data.find({
+				path: path
+			}, function(err, res) {
 				res.toArray(function(err, target) {
 					//The function that goes through the data object to insert actual documents to the database
 					var insert = function(obj, pointer) {
@@ -166,13 +182,15 @@ module.exports = {
 						//MERGE
 						insert(data, path);
 						callback(null, null);
-						
-					//Target is an array
+
+						//Target is an array
 					} else if (target[0].value === "array") {
 						//PUSH behavior
 						if (!_.isObject(data) || !data._id) {
 							//Get the index! We need the maximum index of the object
-							self.data.find({path: new RegExp(path)}, function(err, res) {
+							self.data.find({
+								path: new RegExp(path)
+							}, function(err, res) {
 								res.toArray(function(err, elements) {
 									var index = _.reduce(elements, function(memo, element) {
 										var index = Number(element.path.replace(path, "").split("/")[0]);
@@ -183,18 +201,20 @@ module.exports = {
 									callback(null, null);
 								});
 							});
-							
+
 						} else {
 							//MERGE behavior (not really, but at least we can use the _id property as an index)
 							self.setNode(path + "/" + data._id, "object");
 							insert(data, path + "/" + data._id);
 							callback(null, null);
 						}
-					//Target is a basic value
+						//Target is a basic value
 					} else {
-						callback({error: "Can't set value of a basic value."}, null);
+						callback({
+							error: "Can't set value of a basic value."
+						}, null);
 					}
-					
+
 				});
 			});
 		},

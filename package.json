@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "lodash": "~2.4.1",
-    "mongodb": "~1.4.7"
+    "mongodb": "~1.4.7",
+    "kue": "~0.8.3"
   }
 }
