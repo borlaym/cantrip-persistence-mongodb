@@ -24,6 +24,7 @@ Cantrip.start(function() {
 							index: i
 						}
 					}, function(error, response, body) {
+						console.log(i);
 					});
 				})(i);
 			}

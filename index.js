@@ -3,6 +3,8 @@ _ = require("lodash");
 var mongo = require('mongodb');
 var MongoClient = mongo.MongoClient;
 var kue = require("kue");
+var Promise = require("node-promise").Promise;
+var when = require("node-promise").when;
 var jobs;
 
 module.exports = {
@@ -54,11 +56,16 @@ module.exports = {
 			});
 		},
 		setNode: function(path, value, callback) {
+			var promise = new Promise();
 			var job = jobs.create("insert", {
 				path: path,
 				value: value
 			});
+			job.on("complete", function() {
+				promise.resolve();
+			});
 			job.save();
+			return promise;
 		},
 		get: function(path, callback) {
 			this.data.find({
@@ -149,6 +156,7 @@ module.exports = {
 			});
 		},
 		set: function(path, data, callback) {
+			var promises = [];
 			var self = this;
 			this.data.find({
 				path: path
@@ -160,7 +168,7 @@ module.exports = {
 							if (!_.isObject(obj[key])) {
 								if (pointer === "/_contents/") pointer = "/_contents"; //Fix when we try to set the root "/"
 								if (pointer === "/") pointer = ""; //Fix when we try to set the root "/"
-								self.setNode(pointer + "/" + key, obj[key]);
+								promises.push(self.setNode(pointer + "/" + key, obj[key]));
 								self.deleteNodes(pointer + "/" + key + "\/"); //Delete all previous values this object had
 							} else {
 								if (pointer === "/_contents/") pointer = "/_contents"; //Fix when we try to set the root "/"
@@ -169,9 +177,9 @@ module.exports = {
 								if (obj[key]._id) {
 									keyToContinue = obj[key]._id;
 								}
-								if (_.isArray(obj[key])) self.setNode(pointer + "/" + key, "array");
+								if (_.isArray(obj[key])) promises.push(self.setNode(pointer + "/" + key, "array"));
 								else {
-									self.setNode(pointer + "/" + keyToContinue, "object");
+									promises.push(self.setNode(pointer + "/" + keyToContinue, "object"));
 								}
 								insert(obj[key], pointer + "/" + keyToContinue);
 							}
@@ -181,7 +189,9 @@ module.exports = {
 					if (target.length === 0 || target[0].value === "object") {
 						//MERGE
 						insert(data, path);
-						callback(null, null);
+						when(promises, function() {
+							callback(null, null);
+						});
 
 						//Target is an array
 					} else if (target[0].value === "array") {
@@ -198,15 +208,19 @@ module.exports = {
 									}, -1) + 1;
 									self.setNode(path + "/" + index, "object");
 									insert(data, path + "/" + index);
-									callback(null, null);
+									when(promises, function() {
+										callback(null, null);
+									});
 								});
 							});
 
 						} else {
 							//MERGE behavior (not really, but at least we can use the _id property as an index)
-							self.setNode(path + "/" + data._id, "object");
+							promises.push(self.setNode(path + "/" + data._id, "object"));
 							insert(data, path + "/" + data._id);
-							callback(null, null);
+							when(promises, function() {
+								callback(null, null);
+							});
 						}
 						//Target is a basic value
 					} else {
