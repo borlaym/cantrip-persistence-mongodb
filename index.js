@@ -28,9 +28,10 @@ module.exports = {
 		var self = this;
 		if (!this.options.mongodb) this.options.mongodb = {
 			ip: "localhost",
-			port: 27017
+			port: 27017,
+			database: "cantrip"
 		};
-		MongoClient.connect('mongodb://'+this.options.mongodb.ip+':'+this.options.mongodb.port+'/cantrip', function(err, db) {
+		MongoClient.connect('mongodb://'+this.options.mongodb.ip+':'+this.options.mongodb.port+'/' + this.options.mongodb.database, function(err, db) {
 			if (err) throw err;
 			self.data = db.collection(self.options.namespace);
 			self.dataStore.data = self.data;
