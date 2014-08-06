@@ -31,7 +31,9 @@ module.exports = {
 				callback();
 			});
 			//Set up REDIS queue
-			jobs = kue.createQueue();
+			jobs = kue.createQueue({
+				redis: self.options.redis
+			});
 			jobs.process("insert", function(job, done) {
 				self.data.update({
 						path: job.data.path
